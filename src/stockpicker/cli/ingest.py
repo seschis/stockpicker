@@ -6,6 +6,7 @@ import typer
 
 from stockpicker.db.store import Store
 from stockpicker.engine.ingester import Ingester
+from stockpicker.engine.metrics_computer import MetricsComputer
 from stockpicker.sources.yfinance_source import YFinanceSource
 
 ingest_app = typer.Typer(help="Ingest market data from configured sources.")
@@ -32,5 +33,9 @@ def ingest_run(
         typer.echo(f"{ticker}: {info['prices']} prices, {info['fundamentals']} fundamentals")
         if "error" in info:
             typer.echo(f"  Warning: {info['error']}", err=True)
+
+    computer = MetricsComputer(store)
+    computer.compute_all(tickers)
+    typer.echo("Computed derived metrics.")
 
     store.close()
