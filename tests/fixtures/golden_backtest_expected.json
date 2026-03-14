@@ -1,0 +1,23 @@
+{
+  "metrics": {
+    "total_return": 0.055481,
+    "annualized_return": 2.898958,
+    "sharpe_ratio": 41.2723,
+    "sortino_ratio": 966343754.646,
+    "max_drawdown": 0.0,
+    "trading_days": 10
+  },
+  "equity_curve": [
+    9994.0,
+    10018.86,
+    10093.41,
+    10118.26,
+    10167.96,
+    10224.28,
+    10295.07,
+    10389.54,
+    10484.01,
+    10554.81
+  ],
+  "trade_count": 4
+}
