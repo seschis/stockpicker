@@ -1,5 +1,6 @@
 import typer
 
+from stockpicker.cli.ingest import ingest_app
 from stockpicker.logging_config import setup_logging
 
 app = typer.Typer(
@@ -14,3 +15,6 @@ def main(
 ) -> None:
     """Stockpicker CLI."""
     setup_logging(verbosity=verbose)
+
+
+app.add_typer(ingest_app, name="ingest")
