@@ -1,0 +1,17 @@
+name: momentum-value
+screen: us-midcap-tech
+model: multi-factor-v1
+rules:
+  buy:
+    top_n: 10
+    position_size: equal
+  sell:
+    hold_days: 30
+    stop_loss: -0.08
+  portfolio:
+    initial_capital: 100000
+    max_positions: 10
+    max_position_pct: 0.15
+  costs:
+    commission_per_trade: 0.0
+    slippage_bps: 5

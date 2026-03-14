@@ -1,5 +1,6 @@
 import typer
 
+from stockpicker.cli.backtest import backtest_app
 from stockpicker.cli.ingest import ingest_app
 from stockpicker.cli.score import score_app
 from stockpicker.cli.screen import screen_app
@@ -22,3 +23,4 @@ def main(
 app.add_typer(ingest_app, name="ingest")
 app.add_typer(screen_app, name="screen")
 app.add_typer(score_app, name="score")
+app.add_typer(backtest_app, name="backtest")
