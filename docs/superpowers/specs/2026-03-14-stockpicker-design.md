@@ -148,7 +148,7 @@ factors:
     weight: 0.20
 ```
 
-Drop a Python file in `src/stockpicker/factors/custom/`, reference it from model YAML, and it participates in scoring alongside built-in metrics.
+Custom factor modules must expose a `compute(ticker: str, data: DataFrame) -> float` callable. Drop a Python file in `src/stockpicker/factors/custom/`, reference it from model YAML, and it participates in scoring alongside built-in metrics.
 
 **Usage:** `stockpicker score --screen us-midcap-tech --model multi-factor-v1`
 
@@ -275,6 +275,7 @@ The `config/` module is the single entry point for loading and validating all co
 - **Integration tests:** CLI commands tested end-to-end against the fixture dataset. Verify that `ingest → screen → score → backtest → report` produces expected output.
 - **Data source tests:** Each adapter has tests against recorded/mocked API responses (using `pytest-recording` or similar) so tests don't require live API access.
 - **Custom factor tests:** A sample custom factor in `tests/fixtures/` validates the plugin interface.
+- **Backtest regression tests:** Golden-file tests where a known strategy over a known fixture period must produce a deterministic equity curve. Catches silent backtester bugs that produce misleading results.
 
 ## Project Structure
 
