@@ -1,0 +1,22 @@
+name: multi-factor-v1
+factors:
+  - name: value
+    metric: pe_ratio
+    weight: 0.25
+    direction: lower_is_better
+  - name: growth
+    metric: revenue_growth_yoy
+    weight: 0.25
+    direction: higher_is_better
+  - name: momentum
+    metric: price_return_90d
+    weight: 0.20
+    direction: higher_is_better
+  - name: quality
+    metric: return_on_equity
+    weight: 0.15
+    direction: higher_is_better
+  - name: sentiment
+    metric: news_sentiment_30d
+    weight: 0.15
+    direction: higher_is_better
