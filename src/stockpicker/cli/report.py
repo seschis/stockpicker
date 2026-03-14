@@ -7,6 +7,8 @@ import typer
 from stockpicker.db.store import Store
 from stockpicker.engine.reporter import Reporter
 
+
+
 report_app = typer.Typer(help="Generate performance reports.")
 
 
@@ -118,4 +120,37 @@ def report_compare(
         typer.echo("=" * 80)
         typer.echo(comparison.to_string(index=False))
 
+    store.close()
+
+
+@report_app.command("evaluate-factors")
+def report_evaluate_factors(
+    model: str = typer.Option(..., "--model", "-m", help="Model name"),
+    period: str = typer.Option("90d", "--period", help="Lookback period (e.g., 90d)"),
+    db_path: Path = typer.Option("data/stockpicker.db", help="Path to database"),
+) -> None:
+    """Evaluate individual factor predictiveness."""
+    store = Store(db_path)
+
+    # Get signals for this model
+    signals_df = pd.read_sql_query(
+        "SELECT * FROM signals WHERE model_id = ? ORDER BY date DESC",
+        store._conn, params=[model],
+    )
+    if signals_df.empty:
+        typer.echo(f"No signals found for model '{model}'")
+        raise typer.Exit(1)
+
+    # Get price returns for tickers in signals
+    tickers = signals_df["ticker"].unique().tolist()
+    returns = {}
+    for ticker in tickers:
+        prices = store.get_prices(ticker)
+        if len(prices) >= 2:
+            closes = prices["close"].values.astype(float)
+            returns[ticker] = (closes[-1] - closes[0]) / closes[0]
+
+    reporter = Reporter()
+    eval_result = reporter.factor_evaluation(signals_df, pd.Series(returns))
+    typer.echo(reporter.format_factor_evaluation(eval_result))
     store.close()

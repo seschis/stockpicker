@@ -58,6 +58,33 @@ class Reporter:
             rows.append({"strategy": name, **metrics})
         return pd.DataFrame(rows)
 
+    def factor_evaluation(self, signals: pd.DataFrame, returns: pd.Series) -> pd.DataFrame:
+        """Evaluate factor predictiveness via information coefficient."""
+        factors = signals["factor_name"].unique()
+        records = []
+        for factor in factors:
+            factor_data = signals[signals["factor_name"] == factor].set_index("ticker")
+            common = factor_data.index.intersection(returns.index)
+            if len(common) < 3:
+                records.append({"factor_name": factor, "ic": None, "avg_score": None})
+                continue
+            factor_scores = factor_data.loc[common, "normalized_value"]
+            factor_returns = returns.loc[common]
+            ic = factor_scores.corr(factor_returns)
+            records.append({
+                "factor_name": factor,
+                "ic": round(ic, 4) if not pd.isna(ic) else None,
+                "avg_score": round(factor_scores.mean(), 4),
+            })
+        return pd.DataFrame(records)
+
+    def format_factor_evaluation(self, eval_df: pd.DataFrame) -> str:
+        lines = ["Factor Evaluation", "=" * 40]
+        for _, row in eval_df.iterrows():
+            ic_str = f"{row['ic']:.4f}" if row["ic"] is not None else "N/A"
+            lines.append(f"  {row['factor_name']}: IC={ic_str}")
+        return "\n".join(lines)
+
     def format_report(self, report: dict[str, Any]) -> str:
         lines = [
             f"Strategy: {report['strategy']}",
