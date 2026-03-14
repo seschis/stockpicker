@@ -1,6 +1,7 @@
 import typer
 
 from stockpicker.cli.ingest import ingest_app
+from stockpicker.cli.screen import screen_app
 from stockpicker.logging_config import setup_logging
 
 app = typer.Typer(
@@ -18,3 +19,4 @@ def main(
 
 
 app.add_typer(ingest_app, name="ingest")
+app.add_typer(screen_app, name="screen")

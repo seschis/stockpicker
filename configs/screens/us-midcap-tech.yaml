@@ -1,0 +1,7 @@
+name: US Mid-Cap Tech
+filters:
+  market_cap: [2000000000, 10000000000]
+  sector: [Technology]
+  country: US
+  avg_volume_min: 500000
+  price_min: 5.0

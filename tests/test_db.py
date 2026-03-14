@@ -22,12 +22,18 @@ def test_store_creates_db_and_runs_migrations(tmp_path: Path):
 def test_store_migration_is_idempotent(tmp_path: Path):
     db_path = tmp_path / "test.db"
     store1 = Store(db_path)
-    store2 = Store(db_path)  # should not fail
-    conn = sqlite3.connect(db_path)
+    conn = sqlite3.connect(str(db_path))
     cursor = conn.execute("SELECT COUNT(*) FROM schema_version")
-    count = cursor.fetchone()[0]
+    count_after_first = cursor.fetchone()[0]
     conn.close()
-    assert count == 1
+
+    store2 = Store(db_path)  # should not fail or re-apply migrations
+    conn = sqlite3.connect(str(db_path))
+    cursor = conn.execute("SELECT COUNT(*) FROM schema_version")
+    count_after_second = cursor.fetchone()[0]
+    conn.close()
+
+    assert count_after_second == count_after_first
 
 
 def test_store_upsert_prices(tmp_path: Path):
