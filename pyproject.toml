@@ -1,0 +1,31 @@
+[project]
+name = "stockpicker"
+version = "0.1.0"
+description = "Modular CLI for stock analysis, scoring, backtesting, and paper trading"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "typer>=0.15.0",
+    "pandas>=2.2.0",
+    "numpy>=2.0.0",
+    "pydantic>=2.10.0",
+    "pyyaml>=6.0.0",
+    "rich>=13.0.0",
+]
+
+[project.scripts]
+stockpicker = "stockpicker.cli.main:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+    "pytest-cov>=7.0.0",
+]
