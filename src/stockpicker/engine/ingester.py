@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import date
+from datetime import date, timedelta
 from typing import Any
 
 from stockpicker.db.store import Store
@@ -22,9 +22,20 @@ class Ingester:
 
     def _ingest_ticker(self, ticker: str, start: date, end: date) -> dict:
         result: dict[str, Any] = {"prices": 0, "fundamentals": 0}
+
+        # Check last ingested date for incremental fetch
+        existing = self.store.get_prices(ticker)
+        effective_start = start
+        if not existing.empty:
+            last_date = existing.iloc[-1]["date"]
+            effective_start = max(start, date.fromisoformat(last_date) + timedelta(days=1))
+            if effective_start > end:
+                logger.info("Ticker %s already up to date", ticker)
+                return result
+
         for source_name, source in self.sources.items():
             try:
-                prices_df = source.fetch_prices(ticker, start, end)
+                prices_df = source.fetch_prices(ticker, effective_start, end)
                 if prices_df is not None and not prices_df.empty:
                     self.store.upsert_prices(ticker, prices_df, source=source_name)
                     result["prices"] += len(prices_df)
