@@ -12,6 +12,7 @@ dependencies = [
     "pyyaml>=6.0.0",
     "rich>=13.0.0",
     "yfinance>=1.2.0",
+    "truststore>=0.10.4",
 ]
 
 [project.scripts]
