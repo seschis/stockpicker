@@ -25,19 +25,26 @@ class Reporter:
 
         returns = np.diff(equity) / equity[:-1]
         sharpe = (np.mean(returns) / np.std(returns) * np.sqrt(252)) if np.std(returns) > 0 else 0.0
-        neg_returns = returns[returns < 0]
-        sortino_denom = np.std(neg_returns) if len(neg_returns) > 0 else 1e-10
-        sortino = np.mean(returns) / sortino_denom * np.sqrt(252)
+        downside = np.minimum(returns, 0)
+        sortino_denom = np.sqrt(np.mean(downside ** 2)) if len(returns) > 0 else 1e-10
+        sortino = (np.mean(returns) / sortino_denom * np.sqrt(252)) if sortino_denom > 1e-10 else 0.0
 
         peak = np.maximum.accumulate(equity)
         drawdown = (equity - peak) / peak
         max_drawdown = float(np.min(drawdown))
 
-        # Win rate from trade pairs
-        buys = {t["ticker"]: t for t in trades if t["action"] == "BUY"}
-        sells = [t for t in trades if t["action"] == "SELL"]
-        wins = sum(1 for s in sells if s["ticker"] in buys and s["price"] > buys[s["ticker"]]["price"])
-        total_closed = len(sells)
+        # Win rate from chronological trade pairs (FIFO matching)
+        buy_queues: dict[str, list[float]] = {}
+        wins = 0
+        total_closed = 0
+        for t in trades:
+            if t["action"] == "BUY":
+                buy_queues.setdefault(t["ticker"], []).append(t["price"])
+            elif t["action"] == "SELL" and buy_queues.get(t["ticker"]):
+                entry_price = buy_queues[t["ticker"]].pop(0)
+                total_closed += 1
+                if t["price"] > entry_price:
+                    wins += 1
         win_rate = wins / total_closed if total_closed > 0 else 0.0
 
         return {

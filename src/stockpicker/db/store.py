@@ -38,12 +38,15 @@ class Store:
             self._conn.commit()
 
     def upsert_prices(self, ticker: str, df: pd.DataFrame, source: str = "") -> None:
-        for _, row in df.iterrows():
-            self._conn.execute(
-                "INSERT OR REPLACE INTO prices (ticker, date, open, high, low, close, volume, source) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                (ticker, row["date"], row["open"], row["high"], row["low"], row["close"], int(row["volume"]), source),
-            )
+        rows = [
+            (ticker, row["date"], row["open"], row["high"], row["low"], row["close"], int(row["volume"]), source)
+            for _, row in df.iterrows()
+        ]
+        self._conn.executemany(
+            "INSERT OR REPLACE INTO prices (ticker, date, open, high, low, close, volume, source) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            rows,
+        )
         self._conn.commit()
 
     def get_prices(self, ticker: str, start: str | None = None, end: str | None = None) -> pd.DataFrame:
@@ -59,17 +62,20 @@ class Store:
         return pd.read_sql_query(query, self._conn, params=params)
 
     def upsert_fundamentals(self, ticker: str, df: pd.DataFrame, source: str = "") -> None:
-        for _, row in df.iterrows():
-            self._conn.execute(
-                "INSERT OR REPLACE INTO fundamentals "
-                "(ticker, quarter, eps, pe_ratio, revenue, gross_margin, operating_margin, roe, debt_to_equity, free_cash_flow, source) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (
-                    ticker, row["quarter"], row.get("eps"), row.get("pe_ratio"), row.get("revenue"),
-                    row.get("gross_margin"), row.get("operating_margin"), row.get("roe"),
-                    row.get("debt_to_equity"), row.get("free_cash_flow"), source,
-                ),
+        rows = [
+            (
+                ticker, row["quarter"], row.get("eps"), row.get("pe_ratio"), row.get("revenue"),
+                row.get("gross_margin"), row.get("operating_margin"), row.get("roe"),
+                row.get("debt_to_equity"), row.get("free_cash_flow"), source,
             )
+            for _, row in df.iterrows()
+        ]
+        self._conn.executemany(
+            "INSERT OR REPLACE INTO fundamentals "
+            "(ticker, quarter, eps, pe_ratio, revenue, gross_margin, operating_margin, roe, debt_to_equity, free_cash_flow, source) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            rows,
+        )
         self._conn.commit()
 
     def get_fundamentals(self, ticker: str) -> pd.DataFrame:
@@ -109,6 +115,26 @@ class Store:
             params.append(session_id)
         query += " ORDER BY date"
         return pd.read_sql_query(query, self._conn, params=params)
+
+    def upsert_ticker_info(
+        self, ticker: str, market_cap: float | None, sector: str, country: str, avg_volume: float, last_price: float,
+    ) -> None:
+        self._conn.execute(
+            "INSERT OR REPLACE INTO ticker_info (ticker, market_cap, sector, country, avg_volume, last_price) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (ticker, market_cap, sector, country, avg_volume, last_price),
+        )
+        self._conn.commit()
+
+    def upsert_computed_metrics(
+        self, ticker: str, price_return_90d: float | None, revenue_growth_yoy: float | None, news_sentiment_30d: float | None,
+    ) -> None:
+        self._conn.execute(
+            "INSERT OR REPLACE INTO computed_metrics (ticker, price_return_90d, revenue_growth_yoy, news_sentiment_30d) "
+            "VALUES (?, ?, ?, ?)",
+            (ticker, price_return_90d, revenue_growth_yoy, news_sentiment_30d),
+        )
+        self._conn.commit()
 
     def close(self) -> None:
         self._conn.close()

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 
-import numpy as np
 import pandas as pd
 
 from stockpicker.db.store import Store
@@ -31,24 +30,15 @@ class MetricsComputer:
         last_price = float(prices.iloc[-1]["close"])
         avg_volume = float(prices["volume"].tail(30).mean())
 
-        # Estimate market cap from PE and EPS if available
+        # Market cap requires shares_outstanding data from a real source.
+        # PE * EPS = price (circular), so we can't estimate it from fundamentals alone.
         market_cap = None
-        if not fund.empty:
-            pe = fund.iloc[-1].get("pe_ratio")
-            eps = fund.iloc[-1].get("eps")
-            if pe and eps and pe > 0 and eps > 0:
-                market_cap = last_price / eps * eps * pe * 1e6  # rough estimate
 
         # Get sector/country from fundamentals or default
         sector = "Unknown"
         country = "US"
 
-        self.store._conn.execute(
-            "INSERT OR REPLACE INTO ticker_info (ticker, market_cap, sector, country, avg_volume, last_price) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
-            (ticker, market_cap, sector, country, avg_volume, last_price),
-        )
-        self.store._conn.commit()
+        self.store.upsert_ticker_info(ticker, market_cap, sector, country, avg_volume, last_price)
 
     def _compute_derived_metrics(self, ticker: str) -> None:
         prices = self.store.get_prices(ticker)
@@ -70,9 +60,4 @@ class MetricsComputer:
             if rev_recent and rev_prior and rev_prior > 0:
                 revenue_growth_yoy = (rev_recent - rev_prior) / rev_prior
 
-        self.store._conn.execute(
-            "INSERT OR REPLACE INTO computed_metrics (ticker, price_return_90d, revenue_growth_yoy, news_sentiment_30d) "
-            "VALUES (?, ?, ?, ?)",
-            (ticker, price_return_90d, revenue_growth_yoy, None),
-        )
-        self.store._conn.commit()
+        self.store.upsert_computed_metrics(ticker, price_return_90d, revenue_growth_yoy, None)

@@ -1,7 +1,10 @@
 import pytest
 from pydantic import ValidationError
 
-from stockpicker.config.models import ScreenConfig, FactorConfig, ModelConfig, StrategyConfig
+from stockpicker.config.models import (
+    ScreenConfig, FactorConfig, ModelConfig, StrategyConfig,
+    BuyRules, SellRules, PortfolioRules,
+)
 
 
 def test_screen_config_valid():
@@ -47,6 +50,26 @@ def test_strategy_config_stop_loss_must_be_negative():
                 "costs": {"commission_per_trade": 0.0, "slippage_bps": 5},
             },
         )
+
+
+def test_buy_rules_top_n_must_be_positive():
+    with pytest.raises(ValidationError):
+        BuyRules(top_n=0)
+
+
+def test_sell_rules_hold_days_must_be_positive():
+    with pytest.raises(ValidationError):
+        SellRules(hold_days=0)
+
+
+def test_portfolio_max_positions_must_be_positive():
+    with pytest.raises(ValidationError):
+        PortfolioRules(max_positions=0)
+
+
+def test_factor_weight_must_be_non_negative():
+    with pytest.raises(ValidationError):
+        FactorConfig(name="test", weight=-0.5)
 
 
 from pathlib import Path

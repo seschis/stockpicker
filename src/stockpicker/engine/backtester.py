@@ -79,8 +79,11 @@ class Backtester:
             for ticker, pos in positions.items():
                 current_price = get_price(ticker, date)
                 if current_price is None:
-                    # Delisted or gap — force exit at last known price
-                    to_sell.append((ticker, pos.entry_price, "DELISTED"))
+                    # Delisted or gap — exit at last known price from cache
+                    df = price_cache.get(ticker)
+                    prior = df[df["date"] < date] if df is not None else None
+                    last_known = float(prior.iloc[-1]["close"]) if prior is not None and not prior.empty else pos.entry_price
+                    to_sell.append((ticker, last_known, "DELISTED"))
                     continue
                 pnl_pct = (current_price - pos.entry_price) / pos.entry_price
                 if pnl_pct <= rules.sell.stop_loss:
@@ -175,8 +178,9 @@ class Backtester:
         # Daily returns
         returns = np.diff(equity) / equity[:-1]
         sharpe = (np.mean(returns) / np.std(returns) * np.sqrt(252)) if np.std(returns) > 0 else 0.0
-        sortino_denom = np.std(returns[returns < 0]) if np.any(returns < 0) else 1e-10
-        sortino = np.mean(returns) / sortino_denom * np.sqrt(252)
+        downside = np.minimum(returns, 0)
+        sortino_denom = np.sqrt(np.mean(downside ** 2)) if len(returns) > 0 else 1e-10
+        sortino = (np.mean(returns) / sortino_denom * np.sqrt(252)) if sortino_denom > 1e-10 else 0.0
 
         # Max drawdown
         peak = np.maximum.accumulate(equity)
