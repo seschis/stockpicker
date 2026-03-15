@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
@@ -10,6 +10,7 @@ import pandas as pd
 
 from stockpicker.config.models import StrategyConfig
 from stockpicker.db.store import Store
+from stockpicker.engine.reporter import Reporter
 
 logger = logging.getLogger("stockpicker.engine.backtester")
 
@@ -19,6 +20,7 @@ class BacktestResult:
     metrics: dict[str, float]
     trades: list[dict[str, Any]]
     equity_curve: pd.DataFrame
+    benchmark_metrics: dict[str, dict[str, float]] = field(default_factory=dict)
 
 
 @dataclass
@@ -170,7 +172,24 @@ class Backtester:
         for t in trades:
             self.store.save_trade(t)
 
-        return BacktestResult(metrics=metrics, trades=trades, equity_curve=equity_df)
+        # Compute benchmark metrics
+        benchmark_metrics: dict[str, dict[str, float]] = {}
+        if config.benchmarks:
+            reporter = Reporter()
+            for ticker in config.benchmarks:
+                bench_prices = self.store.get_prices(ticker, start=start, end=end)
+                if bench_prices.empty or len(bench_prices) < 2:
+                    logger.warning("No price data for benchmark %s — skipping", ticker)
+                    continue
+                bench_report = reporter.benchmark_report(
+                    ticker, bench_prices, rules.portfolio.initial_capital,
+                )
+                benchmark_metrics[ticker] = bench_report
+
+        return BacktestResult(
+            metrics=metrics, trades=trades, equity_curve=equity_df,
+            benchmark_metrics=benchmark_metrics,
+        )
 
     def _compute_metrics(self, equity_df: pd.DataFrame, initial_capital: float) -> dict[str, float]:
         if equity_df.empty:

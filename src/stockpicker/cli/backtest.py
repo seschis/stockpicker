@@ -70,4 +70,15 @@ def backtest_run(
             typer.echo(f"  {key}: {value}")
 
     typer.echo(f"\n  Total trades: {len(result.trades)}")
+
+    # Print benchmark comparisons
+    if result.benchmark_metrics:
+        strategy_return = result.metrics.get("total_return", 0.0)
+        typer.echo("\n--- Benchmarks ---")
+        for ticker, bench in result.benchmark_metrics.items():
+            bench_return = bench.get("total_return", 0.0)
+            excess = strategy_return - bench_return
+            sign = "+" if excess >= 0 else ""
+            typer.echo(f"  {ticker} (buy & hold): {bench_return:.2%}    excess: {sign}{excess:.2%}")
+
     store.close()

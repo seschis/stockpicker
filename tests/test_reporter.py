@@ -71,3 +71,52 @@ def test_reporter_compare():
     comparison = reporter.compare(reports)
     assert len(comparison) == 2
     assert "strategy" in comparison.columns
+
+
+def test_benchmark_report_buy_and_hold():
+    """Price goes from 100 to 120 = 20% gain."""
+    dates = pd.bdate_range("2024-01-02", periods=60).strftime("%Y-%m-%d").tolist()
+    # Linear from 100 to 120
+    closes = np.linspace(100.0, 120.0, 60)
+    prices = pd.DataFrame({"date": dates, "close": closes})
+
+    reporter = Reporter()
+    report = reporter.benchmark_report("VOO", prices, initial_capital=100000)
+
+    assert report["strategy"] == "VOO (benchmark)"
+    assert abs(report["total_return"] - 0.20) < 0.01
+    assert report["sharpe_ratio"] > 0
+    assert report["max_drawdown"] == 0.0  # monotonically increasing
+
+
+def test_benchmark_report_with_drawdown():
+    """Price dips mid-period — verify max_drawdown is negative."""
+    closes = [100.0, 105.0, 110.0, 95.0, 90.0, 100.0, 110.0, 115.0, 120.0, 125.0]
+    dates = pd.bdate_range("2024-01-02", periods=len(closes)).strftime("%Y-%m-%d").tolist()
+    prices = pd.DataFrame({"date": dates, "close": closes})
+
+    reporter = Reporter()
+    report = reporter.benchmark_report("SPY", prices, initial_capital=100000)
+
+    assert report["max_drawdown"] < 0
+    # Max drawdown should be from 110 peak to 90 trough = -18.18%
+    assert abs(report["max_drawdown"] - ((90.0 - 110.0) / 110.0)) < 0.01
+
+
+def test_format_report_benchmark():
+    """format_report handles missing win_rate/total_trades gracefully."""
+    reporter = Reporter()
+    bench_report = {
+        "strategy": "VOO (benchmark)",
+        "total_return": 0.12,
+        "annualized_return": 0.25,
+        "sharpe_ratio": 1.5,
+        "sortino_ratio": 2.0,
+        "max_drawdown": -0.05,
+        "trading_days": 120,
+    }
+    formatted = reporter.format_report(bench_report)
+    assert "VOO (benchmark)" in formatted
+    assert "Win Rate" not in formatted
+    assert "Total Trades" not in formatted
+    assert "Trading Days" in formatted

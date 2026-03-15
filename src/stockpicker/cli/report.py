@@ -3,6 +3,7 @@ from pathlib import Path
 import pandas as pd
 import typer
 
+from stockpicker.config.loader import load_strategy
 from stockpicker.db.store import Store
 from stockpicker.engine.reporter import Reporter
 
@@ -88,6 +89,29 @@ def report_strategy(
     if not equity_df.empty and initial_capital > 0:
         report = reporter.strategy_report(strategy, equity_df, trades, initial_capital)
         typer.echo(reporter.format_report(report))
+
+        # Benchmark comparison
+        strat_path = Path(f"configs/strategies/{strategy}.yaml")
+        if strat_path.exists():
+            config = load_strategy(strat_path)
+            if config.benchmarks and len(equity_df) >= 2:
+                start_date = equity_df["date"].iloc[0]
+                end_date = equity_df["date"].iloc[-1]
+                strategy_return = report["total_return"]
+                typer.echo("\n--- Benchmarks ---")
+                for ticker in config.benchmarks:
+                    bench_prices = store.get_prices(ticker, start=start_date, end=end_date)
+                    if bench_prices.empty or len(bench_prices) < 2:
+                        typer.echo(f"  {ticker}: no price data available")
+                        continue
+                    bench = reporter.benchmark_report(ticker, bench_prices, initial_capital)
+                    bench_return = bench["total_return"]
+                    excess = strategy_return - bench_return
+                    sign = "+" if excess >= 0 else ""
+                    typer.echo(
+                        f"  {ticker} (buy & hold): {bench_return:.2%}"
+                        f"    excess: {sign}{excess:.2%}"
+                    )
     else:
         typer.echo(f"\n{strategy}: {len(trades)} trades (insufficient data for full metrics)")
 
@@ -113,6 +137,29 @@ def report_compare(
             typer.echo(f"Warning: insufficient data for {name}")
 
     if reports:
+        # Add benchmark rows if any strategy has benchmarks configured
+        all_benchmarks: set[str] = set()
+        date_range: tuple[str, str] | None = None
+        initial_capital = 0.0
+        for name in names:
+            strat_path = Path(f"configs/strategies/{name}.yaml")
+            if strat_path.exists():
+                config = load_strategy(strat_path)
+                all_benchmarks.update(config.benchmarks)
+                initial_capital = config.rules.portfolio.initial_capital
+            equity_df, _, _ = _reconstruct_equity_curve(store, name, None)
+            if not equity_df.empty and len(equity_df) >= 2:
+                s, e = equity_df["date"].iloc[0], equity_df["date"].iloc[-1]
+                date_range = (s, e) if date_range is None else (min(date_range[0], s), max(date_range[1], e))
+
+        if all_benchmarks and date_range and initial_capital > 0:
+            for ticker in sorted(all_benchmarks):
+                bench_prices = store.get_prices(ticker, start=date_range[0], end=date_range[1])
+                if bench_prices.empty or len(bench_prices) < 2:
+                    continue
+                bench = reporter.benchmark_report(ticker, bench_prices, initial_capital)
+                reports[bench["strategy"]] = bench
+
         comparison = reporter.compare(reports)
         typer.echo("\nStrategy Comparison")
         typer.echo("=" * 80)

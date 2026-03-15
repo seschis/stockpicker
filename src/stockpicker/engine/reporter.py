@@ -10,25 +10,17 @@ logger = logging.getLogger("stockpicker.engine.reporter")
 
 
 class Reporter:
-    def strategy_report(
-        self,
-        name: str,
-        equity_curve: pd.DataFrame,
-        trades: list[dict],
-        initial_capital: float,
-    ) -> dict[str, Any]:
-        equity = np.asarray(equity_curve["equity"].values, dtype=float)
-
+    def _compute_equity_metrics(
+        self, equity: np.ndarray, initial_capital: float,
+    ) -> dict[str, float]:
+        """Compute return/risk metrics from an equity array."""
         if len(equity) < 2:
             return {
-                "strategy": name,
                 "total_return": 0.0,
                 "annualized_return": 0.0,
                 "sharpe_ratio": 0.0,
                 "sortino_ratio": 0.0,
                 "max_drawdown": 0.0,
-                "win_rate": 0.0,
-                "total_trades": len(trades),
                 "trading_days": len(equity),
             }
 
@@ -46,6 +38,33 @@ class Reporter:
         drawdown = (equity - peak) / peak
         max_drawdown = float(np.min(drawdown))
 
+        return {
+            "total_return": round(total_return, 6),
+            "annualized_return": round(annualized, 6),
+            "sharpe_ratio": round(sharpe, 4),
+            "sortino_ratio": round(sortino, 4),
+            "max_drawdown": round(max_drawdown, 6),
+            "trading_days": n_days,
+        }
+
+    def strategy_report(
+        self,
+        name: str,
+        equity_curve: pd.DataFrame,
+        trades: list[dict],
+        initial_capital: float,
+    ) -> dict[str, Any]:
+        equity = np.asarray(equity_curve["equity"].values, dtype=float)
+        metrics = self._compute_equity_metrics(equity, initial_capital)
+
+        if len(equity) < 2:
+            return {
+                "strategy": name,
+                **metrics,
+                "win_rate": 0.0,
+                "total_trades": len(trades),
+            }
+
         # Win rate from chronological trade pairs (FIFO matching)
         buy_queues: dict[str, list[float]] = {}
         wins = 0
@@ -62,15 +81,33 @@ class Reporter:
 
         return {
             "strategy": name,
-            "total_return": round(total_return, 6),
-            "annualized_return": round(annualized, 6),
-            "sharpe_ratio": round(sharpe, 4),
-            "sortino_ratio": round(sortino, 4),
-            "max_drawdown": round(max_drawdown, 6),
+            **metrics,
             "win_rate": round(win_rate, 4),
             "total_trades": len(trades),
-            "trading_days": n_days,
         }
+
+    def benchmark_report(
+        self, ticker: str, prices: pd.DataFrame, initial_capital: float,
+    ) -> dict[str, Any]:
+        """Compute buy-and-hold metrics for a benchmark ticker."""
+        if prices.empty or len(prices) < 2:
+            return {
+                "strategy": f"{ticker} (benchmark)",
+                "total_return": 0.0,
+                "annualized_return": 0.0,
+                "sharpe_ratio": 0.0,
+                "sortino_ratio": 0.0,
+                "max_drawdown": 0.0,
+                "trading_days": len(prices),
+            }
+
+        closes = np.asarray(prices["close"].values, dtype=float)
+        # Buy-and-hold: invest initial_capital at first close
+        shares = initial_capital / closes[0]
+        equity = shares * closes
+
+        metrics = self._compute_equity_metrics(equity, initial_capital)
+        return {"strategy": f"{ticker} (benchmark)", **metrics}
 
     def compare(self, reports: dict[str, dict]) -> pd.DataFrame:
         rows = []
@@ -114,8 +151,12 @@ class Reporter:
             f"  Sharpe Ratio:      {report['sharpe_ratio']:.4f}",
             f"  Sortino Ratio:     {report['sortino_ratio']:.4f}",
             f"  Max Drawdown:      {report['max_drawdown']:.2%}",
-            f"  Win Rate:          {report['win_rate']:.2%}",
-            f"  Total Trades:      {report['total_trades']}",
-            f"  Trading Days:      {report['trading_days']}",
         ]
+        win_rate = report.get("win_rate")
+        if win_rate is not None:
+            lines.append(f"  Win Rate:          {win_rate:.2%}")
+        total_trades = report.get("total_trades")
+        if total_trades is not None:
+            lines.append(f"  Total Trades:      {total_trades}")
+        lines.append(f"  Trading Days:      {report['trading_days']}")
         return "\n".join(lines)

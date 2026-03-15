@@ -104,3 +104,4 @@ class StrategyConfig(BaseModel):
     screen: str
     model: str
     rules: StrategyRules
+    benchmarks: list[str] = []

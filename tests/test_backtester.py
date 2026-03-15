@@ -87,6 +87,44 @@ def test_backtester_applies_stop_loss(tmp_path: Path):
     assert len(sell_trades) >= 1  # stop loss should trigger
 
 
+def test_backtest_includes_benchmark_metrics(tmp_path: Path):
+    store = Store(tmp_path / "test.db")
+    _seed_backtest_db(store)
+
+    # Seed benchmark prices
+    dates = pd.bdate_range("2024-01-02", periods=60)
+    bench_closes = np.linspace(100.0, 120.0, len(dates))
+    bench_df = pd.DataFrame({
+        "date": [d.strftime("%Y-%m-%d") for d in dates],
+        "open": bench_closes * 0.99,
+        "high": bench_closes * 1.01,
+        "low": bench_closes * 0.98,
+        "close": bench_closes,
+        "volume": [1000000] * len(dates),
+    })
+    store.upsert_prices("BENCH", bench_df, source="test")
+
+    rules = StrategyRules(
+        buy=BuyRules(top_n=2, position_size="equal"),
+        sell=SellRules(hold_days=10, stop_loss=-0.10),
+        portfolio=PortfolioRules(initial_capital=100000, max_positions=2, max_position_pct=0.5),
+        costs=CostRules(commission_per_trade=0.0, slippage_bps=0),
+    )
+    config = StrategyConfig(
+        name="test-bench", screen="test", model="test", rules=rules,
+        benchmarks=["BENCH"],
+    )
+
+    backtester = Backtester(store)
+    rankings = {d.strftime("%Y-%m-%d"): ["AAA", "BBB", "CCC"] for d in dates}
+    result = backtester.run(config=config, rankings=rankings, start="2024-01-02", end="2024-03-25")
+
+    assert "BENCH" in result.benchmark_metrics
+    bench = result.benchmark_metrics["BENCH"]
+    assert abs(bench["total_return"] - 0.20) < 0.01
+    assert bench["trading_days"] > 0
+
+
 def test_backtester_delisted_stock_exits_at_last_known_price(tmp_path: Path):
     store = Store(tmp_path / "test.db")
     # Ticker has prices for days 1-5 only, then nothing for days 6-10

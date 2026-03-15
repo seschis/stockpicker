@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from stockpicker.config.loader import load_model, load_screen
+from stockpicker.config.loader import load_model, load_screen, load_strategy
 from stockpicker.config.models import (
     BuyRules,
     FactorConfig,
@@ -111,3 +111,45 @@ factors:
     cfg = load_model(p)
     assert cfg.name == "test-model"
     assert len(cfg.factors) == 2
+
+
+def test_strategy_config_benchmarks_default_empty():
+    config = StrategyConfig(
+        name="test",
+        screen="test",
+        model="test",
+        rules={
+            "buy": {"top_n": 10, "position_size": "equal"},
+            "sell": {"hold_days": 30, "stop_loss": -0.08},
+            "portfolio": {"initial_capital": 100000, "max_positions": 10, "max_position_pct": 0.15},
+            "costs": {"commission_per_trade": 0.0, "slippage_bps": 5},
+        },
+    )
+    assert config.benchmarks == []
+
+
+def test_strategy_config_benchmarks_from_yaml(tmp_path: Path):
+    yaml_content = """
+name: test-strat
+screen: test
+model: test
+rules:
+  buy:
+    top_n: 10
+    position_size: equal
+  sell:
+    hold_days: 30
+    stop_loss: -0.08
+  portfolio:
+    initial_capital: 100000
+    max_positions: 10
+    max_position_pct: 0.15
+  costs:
+    commission_per_trade: 0.0
+    slippage_bps: 5
+benchmarks: [VOO, SPY]
+"""
+    p = tmp_path / "strategy.yaml"
+    p.write_text(yaml_content)
+    cfg = load_strategy(p)
+    assert cfg.benchmarks == ["VOO", "SPY"]

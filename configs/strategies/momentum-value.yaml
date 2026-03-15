@@ -15,3 +15,4 @@ rules:
   costs:
     commission_per_trade: 0.0
     slippage_bps: 5
+benchmarks: [VOO, SPY]
