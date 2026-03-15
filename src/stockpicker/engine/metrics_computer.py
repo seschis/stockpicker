@@ -27,13 +27,17 @@ class MetricsComputer:
         last_price = float(prices.iloc[-1]["close"])  # pyright: ignore[reportArgumentType]
         avg_volume = float(prices["volume"].tail(30).mean())  # pyright: ignore[reportArgumentType]
 
-        # Market cap requires shares_outstanding data from a real source.
-        # PE * EPS = price (circular), so we can't estimate it from fundamentals alone.
-        market_cap = None
-
-        # Get sector/country from fundamentals or default
-        sector = "Unknown"
-        country = "US"
+        # Preserve existing market_cap, sector, country if already set
+        existing = self.store.get_ticker_info()
+        row = existing[existing["ticker"] == ticker]
+        if not row.empty:
+            market_cap = row.iloc[0]["market_cap"] if row.iloc[0]["market_cap"] is not None else None
+            sector = row.iloc[0]["sector"] if row.iloc[0]["sector"] not in (None, "Unknown") else "Unknown"
+            country = row.iloc[0]["country"] if row.iloc[0]["country"] is not None else "US"
+        else:
+            market_cap = None
+            sector = "Unknown"
+            country = "US"
 
         self.store.upsert_ticker_info(ticker, market_cap, sector, country, avg_volume, last_price)
 

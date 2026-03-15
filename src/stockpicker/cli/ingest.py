@@ -6,6 +6,7 @@ import typer
 from stockpicker.db.store import Store
 from stockpicker.engine.ingester import Ingester
 from stockpicker.engine.metrics_computer import MetricsComputer
+from stockpicker.sources.stooq_source import StooqSource
 from stockpicker.sources.yfinance_source import YFinanceSource
 
 ingest_app = typer.Typer(help="Ingest market data from configured sources.")
@@ -23,7 +24,7 @@ def ingest_run(
     start_date = date.fromisoformat(start) if start else end_date - timedelta(days=365)
 
     store = Store(db_path)
-    sources = {"yfinance": YFinanceSource()}
+    sources = {"stooq": StooqSource(), "yfinance": YFinanceSource()}
     ingester = Ingester(store=store, sources=sources)
 
     results = ingester.ingest(tickers=tickers, start=start_date, end=end_date)
