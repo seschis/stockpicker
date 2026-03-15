@@ -1,10 +1,15 @@
 from pathlib import Path
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 
 from stockpicker.config.models import (
-    StrategyConfig, StrategyRules, BuyRules, SellRules, PortfolioRules, CostRules,
+    BuyRules,
+    CostRules,
+    PortfolioRules,
+    SellRules,
+    StrategyConfig,
+    StrategyRules,
 )
 from stockpicker.db.store import Store
 from stockpicker.engine.backtester import Backtester
@@ -80,3 +85,37 @@ def test_backtester_applies_stop_loss(tmp_path: Path):
 
     sell_trades = [t for t in result.trades if t["action"] == "SELL"]
     assert len(sell_trades) >= 1  # stop loss should trigger
+
+
+def test_backtester_delisted_stock_exits_at_last_known_price(tmp_path: Path):
+    store = Store(tmp_path / "test.db")
+    # Ticker has prices for days 1-5 only, then nothing for days 6-10
+    dates_with_prices = pd.bdate_range("2024-01-02", periods=5)
+    df = pd.DataFrame({
+        "date": [d.strftime("%Y-%m-%d") for d in dates_with_prices],
+        "open": [100.0] * 5,
+        "high": [101.0] * 5,
+        "low": [99.0] * 5,
+        "close": [100.0, 101.0, 102.0, 103.0, 104.0],
+        "volume": [1000000] * 5,
+    })
+    store.upsert_prices("DELIST", df, source="test")
+
+    rules = StrategyRules(
+        buy=BuyRules(top_n=1, position_size="equal"),
+        sell=SellRules(hold_days=30, stop_loss=-0.50),
+        portfolio=PortfolioRules(initial_capital=100000, max_positions=1, max_position_pct=1.0),
+        costs=CostRules(commission_per_trade=0.0, slippage_bps=0),
+    )
+    config = StrategyConfig(name="test-delist", screen="test", model="test", rules=rules)
+
+    all_dates = pd.bdate_range("2024-01-02", periods=10)
+    rankings = {d.strftime("%Y-%m-%d"): ["DELIST"] for d in all_dates}
+
+    backtester = Backtester(store)
+    result = backtester.run(config=config, rankings=rankings, start="2024-01-02", end="2024-01-15")
+
+    sell_trades = [t for t in result.trades if t["action"] == "SELL"]
+    assert len(sell_trades) >= 1
+    # Should exit at last known close (104.0), not at entry price
+    assert sell_trades[0]["price"] == 104.0

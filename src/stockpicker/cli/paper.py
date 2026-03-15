@@ -53,7 +53,8 @@ def paper_run_cycle(
     db_path: Path = typer.Option("data/stockpicker.db", help="Path to database"),
 ) -> None:
     """Run one paper trading cycle (designed to be called via cron)."""
-    from datetime import date as date_cls, timedelta
+    from datetime import date as date_cls
+    from datetime import timedelta
 
     from stockpicker.config.loader import load_model, load_screen, load_strategy
     from stockpicker.engine.ingester import Ingester

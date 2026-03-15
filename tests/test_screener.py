@@ -1,7 +1,5 @@
 from pathlib import Path
 
-import pandas as pd
-
 from stockpicker.config.models import ScreenConfig
 from stockpicker.db.store import Store
 from stockpicker.engine.screener import Screener
@@ -26,7 +24,9 @@ def _seed_db(store: Store) -> None:
             "(ticker TEXT PRIMARY KEY, market_cap REAL, sector TEXT, country TEXT, avg_volume REAL, last_price REAL)"
         )
         store._conn.execute(
-            "INSERT OR REPLACE INTO ticker_info (ticker, market_cap, sector, country, avg_volume, last_price) VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT OR REPLACE INTO ticker_info "
+            "(ticker, market_cap, sector, country, avg_volume, last_price) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
             (ticker, mcap, sector, country, vol, price),
         )
     store._conn.commit()

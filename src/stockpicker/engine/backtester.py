@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
@@ -82,16 +82,20 @@ class Backtester:
                     # Delisted or gap — exit at last known price from cache
                     df = price_cache.get(ticker)
                     prior = df[df["date"] < date] if df is not None else None
-                    last_known = float(prior.iloc[-1]["close"]) if prior is not None and not prior.empty else pos.entry_price
+                    last_known = (
+                        float(prior.iloc[-1]["close"])
+                        if prior is not None and not prior.empty
+                        else pos.entry_price
+                    )
                     to_sell.append((ticker, last_known, "DELISTED"))
                     continue
-                pnl_pct = (current_price - pos.entry_price) / pos.entry_price
+                pnl_pct = (current_price - pos.entry_price) / pos.entry_price if pos.entry_price > 0 else 0.0
                 if pnl_pct <= rules.sell.stop_loss:
                     to_sell.append((ticker, current_price, "STOP_LOSS"))
                 elif pos.days_held >= rules.sell.hold_days:
                     to_sell.append((ticker, current_price, "HOLD_EXPIRY"))
 
-            for ticker, sell_price, reason in to_sell:
+            for ticker, sell_price, _reason in to_sell:
                 pos = positions.pop(ticker)
                 slippage = sell_price * (rules.costs.slippage_bps / 10000)
                 adj_price = sell_price - slippage
@@ -172,7 +176,7 @@ class Backtester:
         if equity_df.empty:
             return {"total_return": 0.0, "sharpe_ratio": 0.0, "max_drawdown": 0.0}
 
-        equity = equity_df["equity"].values
+        equity = np.asarray(equity_df["equity"].values, dtype=float)
         total_return = (equity[-1] - initial_capital) / initial_capital
 
         # Daily returns

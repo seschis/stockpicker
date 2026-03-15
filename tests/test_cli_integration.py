@@ -44,15 +44,20 @@ def _seed_full_db(db_path: Path) -> None:
 
         ret_90d = (prices[-1] - prices[0]) / prices[0]
         store._conn.execute(
-            "INSERT OR REPLACE INTO ticker_info (ticker, market_cap, sector, country, avg_volume, last_price) VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT OR REPLACE INTO ticker_info "
+            "(ticker, market_cap, sector, country, avg_volume, last_price) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
             (ticker, 5_000_000_000, "Technology", "US", 1_000_000, float(prices[-1])),
         )
         store._conn.execute(
-            "INSERT OR REPLACE INTO fundamentals (ticker, quarter, pe_ratio, roe) VALUES (?, ?, ?, ?)",
+            "INSERT OR REPLACE INTO fundamentals "
+            "(ticker, quarter, pe_ratio, roe) VALUES (?, ?, ?, ?)",
             (ticker, "2024-Q1", pe, roe),
         )
         store._conn.execute(
-            "INSERT OR REPLACE INTO computed_metrics (ticker, price_return_90d, revenue_growth_yoy, news_sentiment_30d) VALUES (?, ?, ?, ?)",
+            "INSERT OR REPLACE INTO computed_metrics "
+            "(ticker, price_return_90d, revenue_growth_yoy, news_sentiment_30d) "
+            "VALUES (?, ?, ?, ?)",
             (ticker, float(ret_90d), 0.15, 0.5),
         )
     store._conn.commit()

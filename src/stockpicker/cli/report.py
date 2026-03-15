@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import Optional
 
 import pandas as pd
 import typer
@@ -7,12 +6,12 @@ import typer
 from stockpicker.db.store import Store
 from stockpicker.engine.reporter import Reporter
 
-
-
 report_app = typer.Typer(help="Generate performance reports.")
 
 
-def _reconstruct_equity_curve(store: Store, strategy_id: str, session_id: str | None) -> tuple[pd.DataFrame, list[dict], float]:
+def _reconstruct_equity_curve(
+    store: Store, strategy_id: str, session_id: str | None,
+) -> tuple[pd.DataFrame, list[dict], float]:
     """Rebuild equity curve from trade log. Returns (equity_df, trades, initial_capital)."""
     trades_df = store.get_trades(strategy_id=strategy_id, session_id=session_id)
     if trades_df.empty:
@@ -35,7 +34,6 @@ def _reconstruct_equity_curve(store: Store, strategy_id: str, session_id: str | 
 
     # Get price range
     start, end = all_dates[0], all_dates[-1]
-    tickers = list(set(t["ticker"] for t in trades))
     all_trading_dates = pd.bdate_range(start, end).strftime("%Y-%m-%d").tolist()
 
     cash = initial_capital
@@ -75,7 +73,7 @@ def _reconstruct_equity_curve(store: Store, strategy_id: str, session_id: str | 
 @report_app.command("strategy")
 def report_strategy(
     strategy: str = typer.Option(..., "--strategy", "-s", help="Strategy name"),
-    session_id: Optional[str] = typer.Option(None, "--session", help="Specific session ID"),
+    session_id: str | None = typer.Option(None, "--session", help="Specific session ID"),
     db_path: Path = typer.Option("data/stockpicker.db", help="Path to database"),
 ) -> None:
     """Show performance report for a strategy."""
@@ -133,10 +131,7 @@ def report_evaluate_factors(
     store = Store(db_path)
 
     # Get signals for this model
-    signals_df = pd.read_sql_query(
-        "SELECT * FROM signals WHERE model_id = ? ORDER BY date DESC",
-        store._conn, params=[model],
-    )
+    signals_df = store.get_signals(model)
     if signals_df.empty:
         typer.echo(f"No signals found for model '{model}'")
         raise typer.Exit(1)

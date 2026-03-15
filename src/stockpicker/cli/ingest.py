@@ -1,6 +1,5 @@
 from datetime import date, timedelta
 from pathlib import Path
-from typing import Optional
 
 import typer
 
@@ -15,8 +14,8 @@ ingest_app = typer.Typer(help="Ingest market data from configured sources.")
 @ingest_app.command("run")
 def ingest_run(
     tickers: list[str] = typer.Argument(..., help="Ticker symbols to ingest"),
-    start: Optional[str] = typer.Option(None, help="Start date (YYYY-MM-DD). Default: 1 year ago."),
-    end: Optional[str] = typer.Option(None, help="End date (YYYY-MM-DD). Default: today."),
+    start: str | None = typer.Option(None, help="Start date (YYYY-MM-DD). Default: 1 year ago."),
+    end: str | None = typer.Option(None, help="End date (YYYY-MM-DD). Default: today."),
     db_path: Path = typer.Option("data/stockpicker.db", help="Path to database"),
 ) -> None:
     """Ingest price and fundamental data for given tickers."""

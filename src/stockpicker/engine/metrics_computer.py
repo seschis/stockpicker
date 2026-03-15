@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import logging
 
-import pandas as pd
-
 from stockpicker.db.store import Store
 
 logger = logging.getLogger("stockpicker.engine.metrics_computer")
@@ -25,10 +23,9 @@ class MetricsComputer:
         prices = self.store.get_prices(ticker)
         if prices.empty:
             return
-        fund = self.store.get_fundamentals(ticker)
 
-        last_price = float(prices.iloc[-1]["close"])
-        avg_volume = float(prices["volume"].tail(30).mean())
+        last_price = float(prices.iloc[-1]["close"])  # pyright: ignore[reportArgumentType]
+        avg_volume = float(prices["volume"].tail(30).mean())  # pyright: ignore[reportArgumentType]
 
         # Market cap requires shares_outstanding data from a real source.
         # PE * EPS = price (circular), so we can't estimate it from fundamentals alone.
@@ -49,7 +46,7 @@ class MetricsComputer:
 
         # 90-day price return (or max available)
         lookback = min(90, len(closes))
-        price_return_90d = (closes[-1] - closes[-lookback]) / closes[-lookback]
+        price_return_90d = (closes[-1] - closes[-lookback]) / closes[-lookback] if closes[-lookback] != 0 else 0.0
 
         # Revenue growth YoY (placeholder — needs multiple quarters)
         fund = self.store.get_fundamentals(ticker)

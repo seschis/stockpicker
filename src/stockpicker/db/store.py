@@ -39,7 +39,7 @@ class Store:
 
     def upsert_prices(self, ticker: str, df: pd.DataFrame, source: str = "") -> None:
         rows = [
-            (ticker, row["date"], row["open"], row["high"], row["low"], row["close"], int(row["volume"]), source)
+            (ticker, row["date"], row["open"], row["high"], row["low"], row["close"], int(row["volume"]), source)  # pyright: ignore[reportArgumentType]
             for _, row in df.iterrows()
         ]
         self._conn.executemany(
@@ -72,7 +72,8 @@ class Store:
         ]
         self._conn.executemany(
             "INSERT OR REPLACE INTO fundamentals "
-            "(ticker, quarter, eps, pe_ratio, revenue, gross_margin, operating_margin, roe, debt_to_equity, free_cash_flow, source) "
+            "(ticker, quarter, eps, pe_ratio, revenue, gross_margin, "
+            "operating_margin, roe, debt_to_equity, free_cash_flow, source) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             rows,
         )
@@ -84,19 +85,23 @@ class Store:
         )
 
     def save_signals(self, records: list[dict]) -> None:
-        for r in records:
-            self._conn.execute(
-                "INSERT OR REPLACE INTO signals "
-                "(ticker, date, model_id, run_id, factor_name, raw_value, normalized_value, composite_score) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                (r["ticker"], r["date"], r["model_id"], r["run_id"], r["factor_name"],
-                 r.get("raw_value"), r.get("normalized_value"), r.get("composite_score")),
-            )
+        rows = [
+            (r["ticker"], r["date"], r["model_id"], r["run_id"], r["factor_name"],
+             r.get("raw_value"), r.get("normalized_value"), r.get("composite_score"))
+            for r in records
+        ]
+        self._conn.executemany(
+            "INSERT OR REPLACE INTO signals "
+            "(ticker, date, model_id, run_id, factor_name, raw_value, normalized_value, composite_score) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            rows,
+        )
         self._conn.commit()
 
     def save_trade(self, trade: dict) -> None:
         self._conn.execute(
-            "INSERT INTO trades (strategy_id, session_type, session_id, ticker, action, date, price, shares, commission, slippage) "
+            "INSERT INTO trades (strategy_id, session_type, session_id, "
+            "ticker, action, date, price, shares, commission, slippage) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (trade["strategy_id"], trade["session_type"], trade["session_id"], trade["ticker"],
              trade["action"], trade["date"], trade["price"], trade["shares"],
@@ -127,12 +132,88 @@ class Store:
         self._conn.commit()
 
     def upsert_computed_metrics(
-        self, ticker: str, price_return_90d: float | None, revenue_growth_yoy: float | None, news_sentiment_30d: float | None,
+        self,
+        ticker: str,
+        price_return_90d: float | None,
+        revenue_growth_yoy: float | None,
+        news_sentiment_30d: float | None,
     ) -> None:
         self._conn.execute(
-            "INSERT OR REPLACE INTO computed_metrics (ticker, price_return_90d, revenue_growth_yoy, news_sentiment_30d) "
+            "INSERT OR REPLACE INTO computed_metrics "
+            "(ticker, price_return_90d, revenue_growth_yoy, news_sentiment_30d) "
             "VALUES (?, ?, ?, ?)",
             (ticker, price_return_90d, revenue_growth_yoy, news_sentiment_30d),
+        )
+        self._conn.commit()
+
+    def get_ticker_info(self) -> pd.DataFrame:
+        return pd.read_sql_query("SELECT * FROM ticker_info", self._conn)
+
+    def get_signals(self, model_id: str) -> pd.DataFrame:
+        return pd.read_sql_query(
+            "SELECT * FROM signals WHERE model_id = ? ORDER BY date DESC",
+            self._conn, params=[model_id],
+        )
+
+    def get_factor_values(self, table: str, column: str, tickers: list[str]) -> pd.DataFrame:
+        placeholders = ",".join("?" for _ in tickers)
+        if table == "fundamentals":
+            query = (
+                f"SELECT ticker, {column} FROM {table} "
+                f"WHERE ticker IN ({placeholders}) "
+                f"AND (ticker, quarter) IN "
+                f"(SELECT ticker, MAX(quarter) FROM {table} GROUP BY ticker)"
+            )
+        else:
+            query = f"SELECT ticker, {column} FROM {table} WHERE ticker IN ({placeholders})"
+        return pd.read_sql_query(query, self._conn, params=tickers)
+
+    def create_paper_session(self, session_id: str, strategy_id: str, cash: float) -> None:
+        self._conn.execute(
+            "INSERT INTO paper_sessions (session_id, strategy_id, status, cash) VALUES (?, ?, ?, ?)",
+            (session_id, strategy_id, "active", cash),
+        )
+        self._conn.commit()
+
+    def get_paper_session(self, session_id: str) -> dict | None:
+        cursor = self._conn.execute(
+            "SELECT * FROM paper_sessions WHERE session_id = ?", (session_id,)
+        )
+        row = cursor.fetchone()
+        return dict(row) if row else None
+
+    def get_paper_positions(self, session_id: str) -> list[dict]:
+        cursor = self._conn.execute(
+            "SELECT * FROM paper_positions WHERE session_id = ?", (session_id,)
+        )
+        return [dict(row) for row in cursor.fetchall()]
+
+    def delete_paper_position(self, session_id: str, ticker: str) -> None:
+        self._conn.execute(
+            "DELETE FROM paper_positions WHERE session_id = ? AND ticker = ?",
+            (session_id, ticker),
+        )
+        self._conn.commit()
+
+    def create_paper_position(
+        self, session_id: str, ticker: str, shares: float, entry_price: float, entry_date: str,
+    ) -> None:
+        self._conn.execute(
+            "INSERT INTO paper_positions (session_id, ticker, shares, entry_price, entry_date) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (session_id, ticker, shares, entry_price, entry_date),
+        )
+        self._conn.commit()
+
+    def update_paper_session_cash(self, session_id: str, cash: float) -> None:
+        self._conn.execute(
+            "UPDATE paper_sessions SET cash = ? WHERE session_id = ?", (cash, session_id)
+        )
+        self._conn.commit()
+
+    def update_paper_session_status(self, session_id: str, status: str) -> None:
+        self._conn.execute(
+            "UPDATE paper_sessions SET status = ? WHERE session_id = ?", (status, session_id)
         )
         self._conn.commit()
 

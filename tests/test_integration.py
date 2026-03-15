@@ -1,17 +1,24 @@
 """End-to-end test: ingest → screen → score → backtest pipeline using fixture data."""
 from pathlib import Path
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 
 from stockpicker.config.models import (
-    ScreenConfig, ModelConfig, FactorConfig,
-    StrategyConfig, StrategyRules, BuyRules, SellRules, PortfolioRules, CostRules,
+    BuyRules,
+    CostRules,
+    FactorConfig,
+    ModelConfig,
+    PortfolioRules,
+    ScreenConfig,
+    SellRules,
+    StrategyConfig,
+    StrategyRules,
 )
 from stockpicker.db.store import Store
-from stockpicker.engine.screener import Screener
-from stockpicker.engine.scorer import Scorer
 from stockpicker.engine.backtester import Backtester
+from stockpicker.engine.scorer import Scorer
+from stockpicker.engine.screener import Screener
 
 
 def test_full_pipeline(tmp_path: Path):

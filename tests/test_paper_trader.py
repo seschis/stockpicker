@@ -1,9 +1,12 @@
 from pathlib import Path
 
-import pandas as pd
-
 from stockpicker.config.models import (
-    StrategyConfig, StrategyRules, BuyRules, SellRules, PortfolioRules, CostRules,
+    BuyRules,
+    CostRules,
+    PortfolioRules,
+    SellRules,
+    StrategyConfig,
+    StrategyRules,
 )
 from stockpicker.db.store import Store
 from stockpicker.engine.paper_trader import PaperTrader

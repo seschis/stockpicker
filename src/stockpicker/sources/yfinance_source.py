@@ -20,9 +20,9 @@ class YFinanceSource:
 
         df = hist[["Open", "High", "Low", "Close", "Volume"]].copy()
         df.columns = ["open", "high", "low", "close", "volume"]
-        df["date"] = df.index.strftime("%Y-%m-%d")
+        df["date"] = pd.DatetimeIndex(df.index).strftime("%Y-%m-%d")
         df = df.reset_index(drop=True)
-        return df[["date", "open", "high", "low", "close", "volume"]]
+        return pd.DataFrame(df[["date", "open", "high", "low", "close", "volume"]])
 
     def fetch_fundamentals(self, ticker: str) -> pd.DataFrame:
         logger.info("Fetching fundamentals for %s", ticker)
@@ -39,12 +39,13 @@ class YFinanceSource:
 
         records = []
         for col in quarterly.columns:
-            quarter_str = col.strftime("%Y-Q%q") if hasattr(col, "strftime") else str(col)
+            quarter_str = f"{col.year}-Q{(col.month - 1) // 3 + 1}" if hasattr(col, "year") else str(col)
+            revenue = quarterly.loc["Total Revenue", col] if "Total Revenue" in quarterly.index else None
             records.append({
                 "quarter": quarter_str,
                 "eps": info.get("trailingEps"),
                 "pe_ratio": info.get("trailingPE"),
-                "revenue": quarterly.get(col, {}).get("Total Revenue"),
+                "revenue": revenue,
                 "gross_margin": info.get("grossMargins"),
                 "operating_margin": info.get("operatingMargins"),
                 "roe": info.get("returnOnEquity"),

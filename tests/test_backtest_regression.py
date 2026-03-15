@@ -9,7 +9,12 @@ from pathlib import Path
 import pandas as pd
 
 from stockpicker.config.models import (
-    StrategyConfig, StrategyRules, BuyRules, SellRules, PortfolioRules, CostRules,
+    BuyRules,
+    CostRules,
+    PortfolioRules,
+    SellRules,
+    StrategyConfig,
+    StrategyRules,
 )
 from stockpicker.db.store import Store
 from stockpicker.engine.backtester import Backtester
@@ -67,7 +72,7 @@ def test_backtest_golden_file(tmp_path: Path):
         GOLDEN_EXPECTED.write_text(json.dumps(actual, indent=2))
         print(f"Golden file generated at {GOLDEN_EXPECTED}")
         print(f"Metrics: {actual['metrics']}")
-        print(f"Review and commit this file to lock in the expected output.")
+        print("Review and commit this file to lock in the expected output.")
         return
 
     # Subsequent runs: compare against golden file

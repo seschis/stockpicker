@@ -59,13 +59,14 @@ class Scorer:
                     valid = False
                     break
                 raw = factor_data[factor.name][ticker]
-                if pd.isna(raw):
+                if pd.isna(raw):  # pyright: ignore[reportGeneralTypeIssues]
                     valid = False
                     break
                 # Normalize: percentile rank
                 series = factor_data[factor.name].dropna()
                 rank = series.rank(pct=True)
-                normalized = rank.get(ticker, np.nan)
+                raw_rank = rank.get(ticker, np.nan)
+                normalized: float = float(raw_rank) if raw_rank is not None else np.nan
                 if factor.direction == "lower_is_better":
                     normalized = 1.0 - normalized
                 factor_scores[factor.name] = normalized
@@ -110,26 +111,18 @@ class Scorer:
             return None
 
         table, column = METRIC_SOURCES[factor.metric]
-        placeholders = ",".join("?" for _ in tickers)
-        query = f"SELECT ticker, {column} FROM {table} WHERE ticker IN ({placeholders})"
-
-        # For fundamentals, get most recent quarter
-        if table == "fundamentals":
-            query = (
-                f"SELECT ticker, {column} FROM {table} "
-                f"WHERE ticker IN ({placeholders}) "
-                f"GROUP BY ticker HAVING quarter = MAX(quarter)"
-            )
-
-        df = pd.read_sql_query(query, self.store._conn, params=tickers)
+        df = self.store.get_factor_values(table, column, tickers)
         if df.empty:
             return None
-        return df.set_index("ticker")[column]
+        result = df.set_index("ticker")[column]
+        assert isinstance(result, pd.Series)
+        return result
 
     def _get_custom_factor(self, tickers: list[str], factor: FactorConfig) -> pd.Series | None:
         try:
+            assert factor.module is not None
             mod = importlib.import_module(factor.module)
-            compute_fn = getattr(mod, "compute")
+            compute_fn = mod.compute
             results = {}
             for ticker in tickers:
                 prices = self.store.get_prices(ticker)

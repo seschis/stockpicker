@@ -1,5 +1,6 @@
-from stockpicker.logging_config import setup_logging
 import logging
+
+from stockpicker.logging_config import setup_logging
 
 
 def test_setup_logging_default_level():

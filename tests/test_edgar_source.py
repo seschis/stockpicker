@@ -1,4 +1,5 @@
 from datetime import date
+
 from stockpicker.sources.edgar_source import EdgarSource
 
 

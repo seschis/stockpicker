@@ -1,4 +1,5 @@
 from datetime import date
+
 from stockpicker.sources.fred_source import FredSource
 
 

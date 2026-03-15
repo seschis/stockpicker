@@ -20,7 +20,7 @@ class Screener:
 
     def screen(self, config: ScreenConfig) -> pd.DataFrame:
         logger.info("Running screen: %s", config.name)
-        df = pd.read_sql_query("SELECT * FROM ticker_info", self.store._conn)
+        df = self.store.get_ticker_info()
         if df.empty:
             logger.warning("No ticker info in database")
             return df
@@ -28,9 +28,9 @@ class Screener:
         for key, value in config.filters.items():
             if key in RANGE_FILTERS and isinstance(value, list) and len(value) == 2:
                 low, high = value
-                df = df[df[key].between(low, high)]
+                df = df[df[key].between(low, high)]  # pyright: ignore[reportAttributeAccessIssue]
             elif key in LIST_FILTERS and isinstance(value, list):
-                df = df[df[key].isin(value)]
+                df = df[df[key].isin(value)]  # pyright: ignore[reportAttributeAccessIssue]
             elif key in MIN_FILTERS:
                 col = MIN_FILTERS[key]
                 df = df[df[col] >= value]
@@ -38,4 +38,5 @@ class Screener:
                 logger.warning("Unknown filter: %s", key)
 
         logger.info("Screen '%s' returned %d tickers", config.name, len(df))
-        return df.reset_index(drop=True)
+        result: pd.DataFrame = df.reset_index(drop=True)  # pyright: ignore[reportAttributeAccessIssue, reportAssignmentType]
+        return result

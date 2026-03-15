@@ -17,26 +17,16 @@ class PaperTrader:
     def start(self, config: StrategyConfig) -> str:
         session_id = str(uuid.uuid4())[:8]
         cash = config.rules.portfolio.initial_capital
-        self.store._conn.execute(
-            "INSERT INTO paper_sessions (session_id, strategy_id, status, cash) VALUES (?, ?, ?, ?)",
-            (session_id, config.name, "active", cash),
-        )
-        self.store._conn.commit()
+        self.store.create_paper_session(session_id, config.name, cash)
         logger.info("Started paper session %s for strategy %s", session_id, config.name)
         return session_id
 
     def status(self, session_id: str) -> dict[str, Any]:
-        cursor = self.store._conn.execute(
-            "SELECT * FROM paper_sessions WHERE session_id = ?", (session_id,)
-        )
-        session = cursor.fetchone()
+        session = self.store.get_paper_session(session_id)
         if session is None:
             raise ValueError(f"Session {session_id} not found")
 
-        positions_cursor = self.store._conn.execute(
-            "SELECT * FROM paper_positions WHERE session_id = ?", (session_id,)
-        )
-        positions = [dict(row) for row in positions_cursor.fetchall()]
+        positions = self.store.get_paper_positions(session_id)
 
         return {
             "session_id": session["session_id"],
@@ -46,7 +36,10 @@ class PaperTrader:
             "positions": positions,
         }
 
-    def run_cycle(self, session_id: str, rankings: list[str], prices: dict[str, float], date: str, config: StrategyConfig) -> dict:
+    def run_cycle(
+        self, session_id: str, rankings: list[str], prices: dict[str, float],
+        date: str, config: StrategyConfig,
+    ) -> dict:
         """Execute one trading cycle for the paper session."""
         status = self.status(session_id)
         if status["status"] != "active":
@@ -62,7 +55,7 @@ class PaperTrader:
             current_price = prices.get(ticker)
             if current_price is None:
                 continue
-            pnl_pct = (current_price - pos["entry_price"]) / pos["entry_price"]
+            pnl_pct = (current_price - pos["entry_price"]) / pos["entry_price"] if pos["entry_price"] > 0 else 0.0
             days_held = (
                 len(list(self.store.get_prices(ticker, start=pos["entry_date"], end=date)))
             )
@@ -73,10 +66,7 @@ class PaperTrader:
                 adj_price = current_price - slippage
                 proceeds = adj_price * pos["shares"] - rules.costs.commission_per_trade
                 cash += proceeds
-                self.store._conn.execute(
-                    "DELETE FROM paper_positions WHERE session_id = ? AND ticker = ?",
-                    (session_id, ticker),
-                )
+                self.store.delete_paper_position(session_id, ticker)
                 self.store.save_trade({
                     "strategy_id": config.name, "session_type": "paper", "session_id": session_id,
                     "ticker": ticker, "action": "SELL", "date": date,
@@ -105,11 +95,7 @@ class PaperTrader:
             if cost > cash:
                 continue
             cash -= cost
-            self.store._conn.execute(
-                "INSERT INTO paper_positions (session_id, ticker, shares, entry_price, entry_date) "
-                "VALUES (?, ?, ?, ?, ?)",
-                (session_id, ticker, shares, adj_price, date),
-            )
+            self.store.create_paper_position(session_id, ticker, shares, adj_price, date)
             self.store.save_trade({
                 "strategy_id": config.name, "session_type": "paper", "session_id": session_id,
                 "ticker": ticker, "action": "BUY", "date": date,
@@ -121,16 +107,10 @@ class PaperTrader:
             actions.append({"action": "BUY", "ticker": ticker, "price": adj_price})
 
         # Update cash
-        self.store._conn.execute(
-            "UPDATE paper_sessions SET cash = ? WHERE session_id = ?", (cash, session_id)
-        )
-        self.store._conn.commit()
+        self.store.update_paper_session_cash(session_id, cash)
 
         return {"date": date, "actions": actions, "cash": cash, "positions": len(positions)}
 
     def stop(self, session_id: str) -> dict:
-        self.store._conn.execute(
-            "UPDATE paper_sessions SET status = 'stopped' WHERE session_id = ?", (session_id,)
-        )
-        self.store._conn.commit()
+        self.store.update_paper_session_status(session_id, "stopped")
         return self.status(session_id)

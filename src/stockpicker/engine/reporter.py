@@ -17,7 +17,20 @@ class Reporter:
         trades: list[dict],
         initial_capital: float,
     ) -> dict[str, Any]:
-        equity = equity_curve["equity"].values
+        equity = np.asarray(equity_curve["equity"].values, dtype=float)
+
+        if len(equity) < 2:
+            return {
+                "strategy": name,
+                "total_return": 0.0,
+                "annualized_return": 0.0,
+                "sharpe_ratio": 0.0,
+                "sortino_ratio": 0.0,
+                "max_drawdown": 0.0,
+                "win_rate": 0.0,
+                "total_trades": len(trades),
+                "trading_days": len(equity),
+            }
 
         total_return = (equity[-1] - initial_capital) / initial_capital
         n_days = len(equity)

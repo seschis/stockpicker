@@ -1,9 +1,17 @@
+from pathlib import Path
+
 import pytest
 from pydantic import ValidationError
 
+from stockpicker.config.loader import load_model, load_screen
 from stockpicker.config.models import (
-    ScreenConfig, FactorConfig, ModelConfig, StrategyConfig,
-    BuyRules, SellRules, PortfolioRules,
+    BuyRules,
+    FactorConfig,
+    ModelConfig,
+    PortfolioRules,
+    ScreenConfig,
+    SellRules,
+    StrategyConfig,
 )
 
 
@@ -16,7 +24,7 @@ def test_screen_config_valid():
 
 
 def test_model_config_weights_must_sum_to_one():
-    with pytest.raises(ValidationError, match="weights must sum to 1.0"):
+    with pytest.raises(ValidationError, match=r"weights must sum to 1\.0"):
         ModelConfig(
             name="bad-model",
             factors=[
@@ -70,10 +78,6 @@ def test_portfolio_max_positions_must_be_positive():
 def test_factor_weight_must_be_non_negative():
     with pytest.raises(ValidationError):
         FactorConfig(name="test", weight=-0.5)
-
-
-from pathlib import Path
-from stockpicker.config.loader import load_screen, load_model
 
 
 def test_load_screen_from_yaml(tmp_path: Path):
