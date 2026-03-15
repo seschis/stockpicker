@@ -2,6 +2,22 @@
 
 A modular CLI tool for stock analysis, multi-factor scoring, backtesting, and paper trading. Built for quantitative investors who want to define strategies as config, test them against historical data, and validate with paper trading before committing real capital.
 
+## Why Stockpicker?
+
+Most retail investors pick stocks based on gut feel, hot tips, or surface-level screeners. When a strategy doesn't work, they don't know why — was the stock selection bad? The timing? The position sizing? There's no systematic way to test ideas before putting money on the line.
+
+Stockpicker gives you a disciplined workflow for stock selection:
+
+- **Test before you invest.** Define a strategy in YAML, backtest it against years of historical data, and see exactly how it would have performed — including Sharpe ratio, max drawdown, and win rate. No more guessing whether your approach works.
+
+- **Know if you're actually beating the market.** Every backtest and report shows your strategy's performance side-by-side with benchmark index funds (VOO, SPY). If your strategy returns 15% but the S&P 500 returned 18%, you would've been better off buying an index fund. Stockpicker makes that comparison automatic.
+
+- **Separate signal from noise in your stock picks.** The factor evaluation report tells you which of your selection criteria (value, momentum, quality, sentiment) are actually predictive and which are just adding noise. Stop weighting factors that don't work.
+
+- **Paper trade before committing capital.** Once a strategy backtests well, run it forward in simulation mode via a daily cron job. If it holds up in live market conditions, then deploy real money with confidence.
+
+- **Iterate fast with zero code changes.** Strategies, screening criteria, and factor models are all YAML config files. Want to test what happens if you increase the stop loss from 8% to 12%? Change one line and re-run. Want to try a pure momentum strategy vs. a blended value-momentum approach? Copy a config file and tweak the weights.
+
 ## Quick Start
 
 ```bash
