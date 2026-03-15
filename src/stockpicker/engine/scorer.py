@@ -28,7 +28,7 @@ class Scorer:
         for factor in model.factors:
             try:
                 values = self._get_factor_values(tickers, factor)
-                if values is not None and not values.empty:
+                if values is not None and not values.empty and not values.dropna().empty:
                     factor_data[factor.name] = values
                     active_factors.append(factor)
                 else:
